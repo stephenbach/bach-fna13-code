@@ -44,6 +44,8 @@ import edu.umd.cs.psl.model.atom.QueryAtom
 import edu.umd.cs.psl.model.atom.RandomVariableAtom
 import edu.umd.cs.psl.model.kernel.CompatibilityKernel
 import edu.umd.cs.psl.model.parameters.Weight
+import edu.umd.cs.psl.parser.PSLModelLoader;
+import edu.umd.cs.psl.parser.PSLParser;
 import edu.umd.cs.psl.ui.loading.*
 import edu.umd.cs.psl.util.database.Queries
 
@@ -54,7 +56,7 @@ dataPath = "./data/wiki/"
 numCategories = 30
 labelFile = "labels.txt"
 linkFile = "links.txt"
-candidateFile = "candidates.txt"
+candidateFile = "candidates.0.3.txt"
 wordFile = "document.txt"
 dictFile = "words.txt"
 sq = true
@@ -141,12 +143,13 @@ for (int i = 0; i < numCategories; i++)  {
 	for (int j = 0; j < numCategories; j++) {
 		UniqueID cat2 = data.getUniqueID(j)
 		// per-cat rules
-		m.add rule : ( HasCat(A, cat1) &  HasCat(B, cat2)) >> Link(A,B), weight: 1.0, squared: sq
+		m.add rule : ( HasCat(A, cat1) &  HasCat(B, cat2)) >> Link(A,B), weight: 0.0, squared: sq
+		m.add rule : ( HasCat(A, cat1) &  HasCat(B, cat2)) >> ~Link(A,B), weight: 0.0, squared: sq
 	}
-	
+
 	// triangle rules
 	// blocked to reduce cubic blowup
-	m.add rule: (Link(A,B) & Link(B,C) & HasCat(B, cat1) & Candidate(A,C)) >> Link(A,C), weight: 1.0, squared: sq
+	m.add rule: (Link(A,B) & Link(B,C) & HasCat(B, cat1) & Candidate(A,C)) >> Link(A,C), weight: 0.0, squared: sq
 }
 
 
@@ -262,9 +265,9 @@ for (int fold = 0; fold < folds; fold++) {
 	substitutions.put(Doc2, partitionDocuments.get(testReadPartitions.get(fold)))
 	dbPop = new DatabasePopulator(testDB);
 	dbPop.populate(new QueryAtom(Link, Doc1, Doc2), substitutions);
-	
+
 	DataOutputter.outputPredicate("output/wiki/training/observed"+fold+".txt" , trainDB, HasCat, ",", false, "nodeid,label")
-	
+
 	testDB.close();
 	trainDB.close();
 
@@ -292,6 +295,7 @@ for (int fold = 0; fold < folds; fold++) {
 		trainDB.close()
 
 		System.out.println("Learned model " + config.getString("name", "") + "\n" + m.toString())
+		PSLModelLoader.outputModel("output/wiki/models/" + config.getString("name", "") + "." + fold + ".psl", m)
 
 		/* Inference on test set */
 		testDB = data.getDatabase(testWritePartitions.get(fold), [HasCat, HasWord] as Set, testReadPartitions.get(fold))

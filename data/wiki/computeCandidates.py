@@ -3,7 +3,7 @@ import math
 
 # compute the cosine similarity between sparse document word count vectors
 
-MIN_SIMILARITY = 0.1
+thresholds = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6]
 
 trueLinks = []
 
@@ -41,7 +41,9 @@ fin.close()
 
 # compute true link similarities
 
-recall = 0
+recall = dict()
+for threshold in thresholds:
+	recall[threshold] = 0
 
 trueSims = []
 for (a, b) in trueLinks:
@@ -52,28 +54,48 @@ for (a, b) in trueLinks:
 
 	sim /= math.sqrt(selfsim[a] * selfsim[b])
 	trueSims.append(sim)
-	if sim > MIN_SIMILARITY:
-		recall += 1
-recall = float(recall) / float(len(trueLinks))
+
+	for threshold in thresholds:
+		if sim > threshold:
+			recall[threshold] += 1
 
 print "max similarity of true links: %f" % max(trueSims)
 print "min similarity of true links: %f" % min(trueSims)
 print "average similarity of true links: %f" % (sum(trueSims) / len(trueSims))
-print "recall of pruning: %f" % (recall)
+for threshold in thresholds:
+	print "recall of pruning at %f: %f" % (threshold, float(recall[threshold]) / float(len(trueLinks)))
 
 
-fout = open('candidates.txt', 'w')
+fout = dict()
+for threshold in thresholds:
+	fout[threshold] = open('candidates.%1.1f.txt' % threshold, 'w')
 
-for a in words:
-	for b in words:
+total = len(words)
+count = 1
+
+wordPairs = words.items()
+
+for i in range(len(wordPairs)):
+	(a, wordsA) = wordPairs[i]
+	for j in range(i, len(wordPairs)):
+		(b, wordsB) = wordPairs[j]
 		sim = 0.0
-		for word in words[a]:
-			if word in words[b]:
-				sim += words[a][word] * words[b][word]
+		for word in wordsA:
+			if word in wordsB:
+				sim += wordsA[word] * wordsB[word]
 
 		sim /= math.sqrt(selfsim[a] * selfsim[b])
-		if sim > MIN_SIMILARITY:
-			fout.write("%d\t%d\n" % (a, b))
-fout.close()
+
+		for threshold in thresholds:
+			if sim > threshold:
+				fout[threshold].write("%d\t%d\n" % (a, b))
+				if a != b:
+					fout[threshold].write("%d\t%d\n" % (b, a))
+	if count % 10 == 0:
+		print "Finished pruning %d of %d total nodes" % (count, total)
+	count += 1
+
+for threshold in thresholds:
+	fout[threshold].close()
 
 
