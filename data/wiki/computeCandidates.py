@@ -67,8 +67,10 @@ for threshold in thresholds:
 
 
 fout = dict()
+foutSim = dict()
 for threshold in thresholds:
 	fout[threshold] = open('candidates.%1.1f.txt' % threshold, 'w')
+	foutSim[threshold] = open('similar.%1.1f.txt' % threshold, 'w')
 
 total = len(words)
 count = 1
@@ -89,8 +91,10 @@ for i in range(len(wordPairs)):
 		for threshold in thresholds:
 			if sim > threshold:
 				fout[threshold].write("%d\t%d\n" % (a, b))
+				foutSim[threshold].write("%d\t%d\t%f\n" % (a, b, sim))
 				if a != b:
 					fout[threshold].write("%d\t%d\n" % (b, a))
+					foutSim[threshold].write("%d\t%d\t%f\n" % (b, a, sim))
 	if count % 10 == 0:
 		print "Finished pruning %d of %d total nodes" % (count, total)
 	count += 1

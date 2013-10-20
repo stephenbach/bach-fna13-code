@@ -3,7 +3,7 @@ import math
 
 # compute the cosine similarity between sparse document word count vectors
 
-MIN_SIMILARITY = 0.2
+MIN_SIMILARITY = 0.3
 
 
 fin = open('documentTFIDF.txt', 'r')

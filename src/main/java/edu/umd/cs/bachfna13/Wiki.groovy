@@ -56,7 +56,7 @@ dataPath = "./data/wiki/"
 numCategories = 30
 labelFile = "labels.txt"
 linkFile = "links.txt"
-candidateFile = "candidates.0.3.txt"
+candidateFile = "candidates.0.6.txt"
 wordFile = "document.txt"
 dictFile = "words.txt"
 sq = true
@@ -67,7 +67,7 @@ folds = 5 // number of folds
 if (args.length > 1)
 	seedRatio = Double.parseDouble(args[1]);
 Random rand = new Random(0) // used to seed observed data
-targetSize = 200
+targetSize = 300
 explore = 0.05
 
 Logger log = LoggerFactory.getLogger(this.class)
@@ -136,20 +136,20 @@ m.add predicate: "Candidate", types: [ArgumentType.UniqueID, ArgumentType.Unique
 m.add predicate: "Cat", types: [ArgumentType.UniqueID]
 
 // prior
-m.add rule : ~(Link(A,B)), weight: 0.001, squared: sq
+m.add rule : ~(Link(A,B)), weight: 0.1, squared: sq
 
 for (int i = 0; i < numCategories; i++)  {
 	UniqueID cat1 = data.getUniqueID(i)
 	for (int j = 0; j < numCategories; j++) {
 		UniqueID cat2 = data.getUniqueID(j)
 		// per-cat rules
-		m.add rule : ( HasCat(A, cat1) &  HasCat(B, cat2)) >> Link(A,B), weight: 0.0, squared: sq
-		m.add rule : ( HasCat(A, cat1) &  HasCat(B, cat2)) >> ~Link(A,B), weight: 0.0, squared: sq
+		m.add rule : ( HasCat(A, cat1) &  HasCat(B, cat2)) >> Link(A,B), weight: 1.0, squared: sq
+		m.add rule : ( HasCat(A, cat1) &  HasCat(B, cat2)) >> ~Link(A,B), weight: 1.0, squared: sq
 	}
 
 	// triangle rules
 	// blocked to reduce cubic blowup
-	m.add rule: (Link(A,B) & Link(B,C) & HasCat(B, cat1) & Candidate(A,C)) >> Link(A,C), weight: 0.0, squared: sq
+	m.add rule: (Link(A,B) & Link(B,C) & HasCat(B, cat1) & Candidate(A,C)) >> Link(A,C), weight: 1.0, squared: sq
 }
 
 
@@ -294,7 +294,7 @@ for (int fold = 0; fold < folds; fold++) {
 		learn(m, trainDB, labelsDB, config, log)
 		trainDB.close()
 
-		System.out.println("Learned model " + config.getString("name", "") + "\n" + m.toString())
+		log.debug("Learned model " + config.getString("name", "") + "\n" + m.toString())
 		PSLModelLoader.outputModel("output/wiki/models/" + config.getString("name", "") + "." + fold + ".psl", m)
 
 		/* Inference on test set */
@@ -304,7 +304,7 @@ for (int fold = 0; fold < folds; fold++) {
 			atom.setValue(0.0)
 		MPEInference mpe = new MPEInference(m, testDB, config)
 		FullInferenceResult result = mpe.mpeInference()
-		System.out.println("Objective: " + result.getTotalWeightedIncompatibility())
+		log.debug("Objective: " + result.getTotalWeightedIncompatibility())
 		testDB.close();
 		/*
 		 * Evaluation
@@ -322,9 +322,9 @@ for (int fold = 0; fold < folds; fold++) {
 			comparator.setRankingScore(metrics.get(i))
 			score[i] = comparator.compare(Link)
 		}
-		System.out.println("Area under positive-class PR curve: " + score[0])
-		System.out.println("Area under negative-class PR curve: " + score[1])
-		System.out.println("Area under ROC curve: " + score[2])
+		log.info("Area under positive-class PR curve: " + score[0])
+		log.info("Area under negative-class PR curve: " + score[1])
+		log.info("Area under ROC curve: " + score[2])
 
 		results.get(configIndex).add(score);
 		resultsDB.close()
@@ -344,7 +344,7 @@ for (int configIndex = 0; configIndex < configs.size(); configIndex++) {
 			sum[i] += score[i];
 			sumSq[i] += score[i] * score[i];
 		}
-		System.out.println("Method " + configName + ", fold " + fold +", auprc positive: "
+		log.info("Method " + configName + ", fold " + fold +", auprc positive: "
 				+ score[0] + ", negative: " + score[1] + ", auROC: " + score[2])
 	}
 
@@ -355,14 +355,13 @@ for (int configIndex = 0; configIndex < configs.size(); configIndex++) {
 		variance[i] = sumSq[i] / folds - mean[i] * mean[i];
 	}
 
-	System.out.println();
-	System.out.println("Method " + configName + ", auprc positive: (mean/variance) "
+	
+	log.info("Method " + configName + ", auprc positive: (mean/variance) "
 			+ mean[0] + "  /  " + variance[0] );
-	System.out.println("Method " + configName + ", auprc negative: (mean/variance) "
+	log.info("Method " + configName + ", auprc negative: (mean/variance) "
 			+ mean[1] + "  /  " + variance[1] );
-	System.out.println("Method " + configName + ", auROC: (mean/variance) "
+	log.info("Method " + configName + ", auROC: (mean/variance) "
 			+ mean[2] + "  /  " + variance[2] );
-	System.out.println();
 }
 
 
