@@ -56,18 +56,18 @@ dataPath = "./data/wiki/"
 numCategories = 30
 labelFile = "labels.txt"
 linkFile = "links.txt"
-candidateFile = "candidates.0.6.txt"
-wordFile = "document.txt"
-dictFile = "words.txt"
+threshold = "0.4"
+candidateFile = "candidates." + threshold + ".txt"
+simFile = "similar."+ threshold + ".txt"
 sq = true
 if (args.length > 0)
 	sq = Boolean.parseBoolean(args[0]);
 usePerCatRules = true
-folds = 5 // number of folds
+folds = 3 // number of folds
 if (args.length > 1)
 	seedRatio = Double.parseDouble(args[1]);
 Random rand = new Random(0) // used to seed observed data
-targetSize = 300
+targetSize = 100
 explore = 0.05
 
 Logger log = LoggerFactory.getLogger(this.class)
@@ -130,27 +130,30 @@ PSLModel m = new PSLModel(this, data)
 
 // rules
 m.add predicate: "HasCat", types: [ArgumentType.UniqueID, ArgumentType.UniqueID]
-m.add predicate: "HasWord", types: [ArgumentType.UniqueID, ArgumentType.UniqueID]
+m.add predicate: "Similar", types: [ArgumentType.UniqueID, ArgumentType.UniqueID]
 m.add predicate: "Link", types: [ArgumentType.UniqueID, ArgumentType.UniqueID]
 m.add predicate: "Candidate", types: [ArgumentType.UniqueID, ArgumentType.UniqueID]
-m.add predicate: "Cat", types: [ArgumentType.UniqueID]
+
+double initialWeight = 0.0
 
 // prior
 m.add rule : ~(Link(A,B)), weight: 0.1, squared: sq
+
+m.add rule : ( Similar(A,B)) >> Link(A, B), weight: initialWeight, squared: sq
 
 for (int i = 0; i < numCategories; i++)  {
 	UniqueID cat1 = data.getUniqueID(i)
 	for (int j = 0; j < numCategories; j++) {
 		UniqueID cat2 = data.getUniqueID(j)
 		// per-cat rules
-		m.add rule : ( HasCat(A, cat1) &  HasCat(B, cat2)) >> Link(A,B), weight: 1.0, squared: sq
-		m.add rule : ( HasCat(A, cat1) &  HasCat(B, cat2)) >> ~Link(A,B), weight: 1.0, squared: sq
+		m.add rule : ( HasCat(A, cat1) &  HasCat(B, cat2)) >> Link(A,B), weight: initialWeight, squared: sq
 	}
 
 	// triangle rules
 	// blocked to reduce cubic blowup
-	m.add rule: (Link(A,B) & Link(B,C) & HasCat(B, cat1) & Candidate(A,C)) >> Link(A,C), weight: 1.0, squared: sq
+	m.add rule: (Link(A,B) & Link(B,C) & HasCat(B, cat1) & Candidate(A,C)) >> Link(A,C), weight: initialWeight, squared: sq
 }
+
 
 
 
@@ -179,12 +182,10 @@ inserter = data.getInserter(Candidate, fullObserved)
 InserterUtils.loadDelimitedData(inserter, dataPath + candidateFile)
 log.debug("Loaded candidate links");
 
-//def dictionary = loadDictionary(dataPath + dictFile)
-//log.debug("Loaded dictionary {}", dictionary);
-//
-//inserter = data.getInserter(HasWord, fullObserved)
-//insertWords(inserter, dataPath + wordFile, dictionary)
-//log.debug("Loaded words");
+inserter = data.getInserter(Similar, fullObserved)
+InserterUtils.loadDelimitedDataTruth(inserter, dataPath + simFile)
+log.debug("Loaded similarities");
+
 
 log.debug("Initial loading complete");
 
@@ -210,8 +211,8 @@ keys.add(document)
 keys.add(linkedDocument)
 queries.add(new DatabaseQuery(Link(document, linkedDocument).getFormula()))
 queries.add(new DatabaseQuery(Candidate(document, linkedDocument).getFormula()))
+queries.add(new DatabaseQuery(Similar(document, linkedDocument).getFormula()))
 queries.add(new DatabaseQuery(HasCat(document, A).getFormula()))
-queries.add(new DatabaseQuery(HasWord(document, W).getFormula()))
 
 def partitionDocuments = new HashMap<Partition, Set<GroundTerm>>()
 
@@ -282,6 +283,8 @@ for (int fold = 0; fold < folds; fold++) {
 
 	log.debug("Setup done. Starting learning experiments")
 
+	def observedToClose = [HasCat, Similar, Candidate] as Set
+	
 	for (int configIndex = 0; configIndex < configs.size(); configIndex++) {
 		ConfigBundle config = configs.get(configIndex);
 		for (CompatibilityKernel k : Iterables.filter(m.getKernels(), CompatibilityKernel.class))
@@ -290,7 +293,7 @@ for (int fold = 0; fold < folds; fold++) {
 		/*
 		 * Weight learning
 		 */
-		trainDB = data.getDatabase(trainWritePartitions.get(fold), [HasCat, HasWord] as Set, trainReadPartitions.get(fold))
+		trainDB = data.getDatabase(trainWritePartitions.get(fold), observedToClose, trainReadPartitions.get(fold))
 		learn(m, trainDB, labelsDB, config, log)
 		trainDB.close()
 
@@ -298,7 +301,7 @@ for (int fold = 0; fold < folds; fold++) {
 		PSLModelLoader.outputModel("output/wiki/models/" + config.getString("name", "") + "." + fold + ".psl", m)
 
 		/* Inference on test set */
-		testDB = data.getDatabase(testWritePartitions.get(fold), [HasCat, HasWord] as Set, testReadPartitions.get(fold))
+		testDB = data.getDatabase(testWritePartitions.get(fold), observedToClose as Set, testReadPartitions.get(fold))
 		Set<GroundAtom> allAtoms = Queries.getAllAtoms(testDB, Link)
 		for (RandomVariableAtom atom : Iterables.filter(allAtoms, RandomVariableAtom))
 			atom.setValue(0.0)
@@ -355,7 +358,7 @@ for (int configIndex = 0; configIndex < configs.size(); configIndex++) {
 		variance[i] = sumSq[i] / folds - mean[i] * mean[i];
 	}
 
-	
+
 	log.info("Method " + configName + ", auprc positive: (mean/variance) "
 			+ mean[0] + "  /  " + variance[0] );
 	log.info("Method " + configName + ", auprc negative: (mean/variance) "
