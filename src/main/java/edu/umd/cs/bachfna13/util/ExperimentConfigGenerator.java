@@ -23,39 +23,44 @@ import edu.umd.cs.psl.reasoner.bool.BooleanMaxWalkSatFactory;
  * @author Stephen Bach <bach@cs.umd.edu>
  */
 public class ExperimentConfigGenerator {
-	
+
 	public ExperimentConfigGenerator(String baseConfigName) {
 		this.baseConfigName = baseConfigName;
 	}
 
 	/* General options */
 	protected final String baseConfigName;
-	
+
 	protected List<String> modelTypes = new ArrayList<String>();
 	public void setModelTypes(List<String> modelTypes) {
 		this.modelTypes = modelTypes;
 	}
-	
+
 	protected List<String> learningMethods = new ArrayList<String>();
 	public void setLearningMethods(List<String> learningMethods) { this.learningMethods = learningMethods; }
-	
+
 	/* VotedPerceptron options */
 	protected List<Integer> votedPerceptronStepCounts = new ArrayList<Integer>();
 	public void setVotedPerceptronStepCounts(List<Integer> vpStepCounts) {
 		votedPerceptronStepCounts = vpStepCounts;
 	}
-	
+
 	protected List<Double> votedPerceptronStepSizes = new ArrayList<Double>();
 	public void setVotedPerceptronStepSizes(List<Double> vpStepSizes) {
 		votedPerceptronStepSizes = vpStepSizes;
 	}
-	
+
+	protected List<Double> regularizationParameters = new ArrayList<Double>();
+	public void setRegularizationParameters(List<Double> regularizers) {
+		regularizationParameters = regularizers;
+	}
+
 	/* MaxMargin options */
 	protected List<Double> maxMarginSlackPenalties = new ArrayList<Double>();
 	public void setMaxMarginSlackPenalties(List<Double> mmSlackPenalties) {
 		maxMarginSlackPenalties = mmSlackPenalties;
 	}
-	
+
 	protected List<LossBalancingType> maxMarginLossBalancingTypes = new ArrayList<LossBalancingType>();
 	public void setMaxMarginLossBalancingTypes(List<LossBalancingType> mmLossBalancingTypes) {
 		maxMarginLossBalancingTypes = mmLossBalancingTypes;
@@ -64,12 +69,12 @@ public class ExperimentConfigGenerator {
 	public void setMaxMarginNormScalingTypes(List<NormScalingType> mmNormScalingTypes) {
 		maxMarginNormScalingTypes = mmNormScalingTypes;
 	}
-	
+
 	protected List<Boolean> maxMarginSquaredSlackValues = new ArrayList<Boolean>();
 	public void setMaxMarginSquaredSlackValues(List<Boolean> mmSquaredSlackValues) {
 		maxMarginSquaredSlackValues = mmSquaredSlackValues;
 	}
-	
+
 	public List<ConfigBundle> getConfigs() {
 		List<ConfigBundle> configs = new ArrayList<ConfigBundle>();
 		ConfigManager cm;
@@ -79,27 +84,42 @@ public class ExperimentConfigGenerator {
 			throw new RuntimeException(e);
 		}
 		String name;
-		
+
 		for (String modelType : modelTypes) {
 			for (String learningMethod : learningMethods) {
-				if (learningMethod.equals("MLE") || learningMethod.equals("MPLE")) {
+				if (learningMethod.equals("MLE") || learningMethod.equals("MPLE") || learningMethod.equals("OMM")) {
 					for (int vpStepCount : votedPerceptronStepCounts) {
 						for (double vpStepSize : votedPerceptronStepSizes) {
-							ConfigBundle newBundle = cm.getBundle(baseConfigName);
-							newBundle.addProperty("learningmethod", learningMethod);
-							newBundle.addProperty(VotedPerceptron.NUM_STEPS_KEY, vpStepCount);
-							newBundle.addProperty(VotedPerceptron.STEP_SIZE_KEY, vpStepSize);
-							name = modelType + "-" + learningMethod.toLowerCase() + "-" + vpStepCount + "-" + vpStepSize;
-							if (modelType.equals("bool")) {
-								newBundle.addProperty(VotedPerceptron.REASONER_KEY, new BooleanMaxWalkSatFactory());
-								newBundle.addProperty(MaxPseudoLikelihood.BOOLEAN_KEY, true);
+							List<Double> myRegularizationParameters;
+							if (learningMethod.equals("OMM"))
+								myRegularizationParameters = regularizationParameters;
+							else {
+								myRegularizationParameters = new ArrayList<Double>();
+								myRegularizationParameters.add((double) 0.0);
 							}
-							addInferenceProperties(newBundle, modelType);
-							newBundle.addProperty("name", name);
-							configs.add(newBundle);
+							for (Double vpRegularizer : myRegularizationParameters) {
+								ConfigBundle newBundle = cm.getBundle(baseConfigName);
+								newBundle.addProperty("learningmethod", learningMethod);
+								newBundle.addProperty(VotedPerceptron.NUM_STEPS_KEY, vpStepCount);
+								newBundle.addProperty(VotedPerceptron.STEP_SIZE_KEY, vpStepSize);
+								newBundle.addProperty(VotedPerceptron.L2_REGULARIZATION_KEY, vpRegularizer);
+								name = modelType + "-" + learningMethod.toLowerCase() + "-" + vpStepCount + "-" + vpStepSize;
+								if (learningMethod.equals("OMM")) {
+									newBundle.addProperty(VotedPerceptron.AUGMENT_LOSS_KEY, true);
+									name = name + "-" + vpRegularizer;
+								}
+								if (modelType.equals("bool")) {
+									newBundle.addProperty(VotedPerceptron.REASONER_KEY, new BooleanMaxWalkSatFactory());
+									newBundle.addProperty(MaxPseudoLikelihood.BOOLEAN_KEY, true);
+								}
+								addInferenceProperties(newBundle, modelType);
+								newBundle.addProperty("name", name);
+								configs.add(newBundle);
+							}
 						}
 					}
 				}
+
 				else if (learningMethod.equals("MM")) {
 					for (double slackPenalty : maxMarginSlackPenalties) {
 						for (LossBalancingType lossBalancing : maxMarginLossBalancingTypes) {
@@ -128,10 +148,10 @@ public class ExperimentConfigGenerator {
 				}
 			}
 		}
-		
+
 		return configs;
 	}
-	
+
 	private void addInferenceProperties(ConfigBundle config, String modelType) {
 		if (modelType.equals("bool")) {
 			config.addProperty(MPEInference.REASONER_KEY, new BooleanMCSatFactory());
