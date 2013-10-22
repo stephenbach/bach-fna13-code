@@ -324,12 +324,19 @@ for (int fold = 0; fold < folds; fold++) {
 
 		DiscretePredictionStatistics stats = comparator.compare(Link)
 		score[3] = stats.accuracy;
-
+	
 		log.info("Area under positive-class PR curve: " + score[0])
 		log.info("Area under negative-class PR curve: " + score[1])
 		log.info("Area under ROC curve: " + score[2])
 		log.info("Rounded accuracy: " + score[3]);
 
+		
+		def b = DiscretePredictionStatistics.BinaryClass.POSITIVE
+		log.info("Method " + config.getString("name", "") + ", fold " + fold +", acc " + stats.getAccuracy() +
+				", prec " + stats.getPrecision(b) + ", rec " + stats.getRecall(b) +
+				", F1 " + stats.getF1(b) + ", correct " + stats.getCorrectAtoms().size() +
+				", tp " + stats.tp + ", fp " + stats.fp + ", tn " + stats.tn + ", fn " + stats.fn)
+		
 		results.get(configIndex).add(score);
 		resultsDB.close()
 		groundTruthDB.close()
