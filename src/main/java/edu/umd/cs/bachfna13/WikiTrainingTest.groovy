@@ -65,7 +65,7 @@ sq = true
 if (args.length > 0)
 	sq = Boolean.parseBoolean(args[0]);
 usePerCatRules = true
-folds = 5 // number of folds
+folds = 1 // number of folds
 if (args.length > 1)
 	seedRatio = Double.parseDouble(args[1]);
 Random rand = new Random(0) // used to seed observed data
@@ -108,7 +108,7 @@ configGenerator.setModelTypes([(sq) ? "quad" : "linear"]);
  * "MPLE" (MaxPseudoLikelihood)
  * "MM" (MaxMargin)
  */
-configGenerator.setLearningMethods(["OMM", "MLE"]);
+configGenerator.setLearningMethods(["OMM"]);
 
 /* MLE/MPLE options */
 configGenerator.setVotedPerceptronStepCounts([100]);
@@ -296,8 +296,11 @@ for (int fold = 0; fold < folds; fold++) {
 		/* Inference on training set */
 		trainDB = data.getDatabase(trainWritePartitions.get(fold), observedToClose, trainReadPartitions.get(fold))
 		Set<GroundAtom> allAtoms = Queries.getAllAtoms(trainDB, Link)
-		for (RandomVariableAtom atom : Iterables.filter(allAtoms, RandomVariableAtom))
-			atom.setValue(0.0)
+		for (RandomVariableAtom atom : Iterables.filter(allAtoms, RandomVariableAtom)) {
+			atom.setValue(0.0);
+			atom.commitToDB();
+		}
+		
 		MPEInference mpe = new MPEInference(m, trainDB, config)
 		FullInferenceResult result = mpe.mpeInference()
 		log.debug("Objective: " + result.getTotalWeightedIncompatibility())
@@ -309,8 +312,7 @@ for (int fold = 0; fold < folds; fold++) {
 		 */
 		Database resultsDB = data.getDatabase(trainWritePartitions.get(fold))
 		def comparator = new SimpleRankingComparator(resultsDB)
-		def groundTruthDB = data.getDatabase(testLabelPartitions.get(fold), [Link] as Set)
-		comparator.setBaseline(groundTruthDB)
+		comparator.setBaseline(labelsDB)
 
 		DataOutputter.outputPredicate("output/wiki/predictions/" + config.getString("name", "") + "." + fold + ".txt", resultsDB, Link, ",", true, "from,to")
 		
@@ -323,7 +325,7 @@ for (int fold = 0; fold < folds; fold++) {
 		}
 
 		comparator = new DiscretePredictionComparator(resultsDB)
-		comparator.setBaseline(groundTruthDB)
+		comparator.setBaseline(labelsDB)
 
 		DiscretePredictionStatistics stats = comparator.compare(Link)
 		score[3] = stats.accuracy;
@@ -342,7 +344,6 @@ for (int fold = 0; fold < folds; fold++) {
 		
 		results.get(configIndex).add(score);
 		resultsDB.close()
-		groundTruthDB.close()
 	}
 }
 
