@@ -74,6 +74,8 @@ explore = 0.05
 
 Logger log = LoggerFactory.getLogger(this.class)
 
+log.warn("Starting run at {}", new Date())
+
 ConfigManager cm = ConfigManager.getManager()
 ConfigBundle cb = cm.getBundle("wiki")
 
@@ -310,7 +312,8 @@ for (int fold = 0; fold < folds; fold++) {
 		def groundTruthDB = data.getDatabase(testLabelPartitions.get(fold), [Link] as Set)
 		comparator.setBaseline(groundTruthDB)
 
-
+		DataOutputter.outputPredicate("output/wiki/predictions/" + config.getString("name", "") + "." + fold + ".txt", resultsDB, Link, ",", true, "from,to")
+		
 		def metrics = [RankingScore.AUPRC, RankingScore.NegAUPRC, RankingScore.AreaROC]
 		double [] score = new double[metrics.size() + 1]
 
@@ -342,6 +345,10 @@ for (int fold = 0; fold < folds; fold++) {
 		groundTruthDB.close()
 	}
 }
+
+
+log.warn("Finished at {}", new Date());
+
 
 
 for (int configIndex = 0; configIndex < configs.size(); configIndex++) {
