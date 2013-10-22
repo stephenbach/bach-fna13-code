@@ -66,11 +66,11 @@ sq = true
 if (args.length > 0)
 	sq = Boolean.parseBoolean(args[0]);
 usePerCatRules = true
-folds = 1 // number of folds
+folds = 4 // number of folds
 if (args.length > 1)
 	seedRatio = Double.parseDouble(args[1]);
 Random rand = new Random(0) // used to seed observed data
-targetSize = 100
+targetSize = 250
 explore = 0.05
 
 Logger log = LoggerFactory.getLogger(this.class)
@@ -109,13 +109,12 @@ configGenerator.setModelTypes([(sq) ? "quad" : "linear"]);
  * "MPLE" (MaxPseudoLikelihood)
  * "MM" (MaxMargin)
  */
-configGenerator.setLearningMethods(["RANK", "OMM"]);
+configGenerator.setLearningMethods(["RANK", "OMM", "MLE"]);
 
 /* MLE/MPLE options */
 configGenerator.setVotedPerceptronStepCounts([100]);
 configGenerator.setVotedPerceptronStepSizes([(double) 5.0]);
-//configGenerator.setRegularizationParameters([(double) 1.0, (double) 0.1, (double) 0.01]);
-configGenerator.setRegularizationParameters([(double) 1.0]);
+configGenerator.setRegularizationParameters([(double) 1.0, (double) 0.1, (double) 0.01]);
 
 /* MM options */
 configGenerator.setMaxMarginSlackPenalties([(double) 1.0]);
@@ -416,54 +415,3 @@ public void learn(Model m, Database db, Database labelsDB, ConfigBundle config, 
 	}
 }
 
-
-public void insertWords(Inserter inserter, String wordFile, Map<Integer, String> dictionary) {
-	// load words
-	Scanner wordScanner = new Scanner(new FileReader(wordFile));
-	while (wordScanner.hasNext()) {
-		String line = wordScanner.nextLine();
-		String [] tokens = line.split("\t");
-		Integer docID = Integer.decode(tokens[0]);
-		Map<Integer, Double> docWords = parseWords(tokens[1]);
-		for (Map.Entry<Integer, Double> e : docWords.entrySet()) {
-			Integer wordID = e.getKey();
-			Double count = (double) e.getValue();
-			String word = dictionary.get(wordID);
-			if (word != null)
-				inserter.insert(docID, wordID);
-		}
-	}
-	wordScanner.close();
-}
-
-
-public Map<Integer, Double> parseWords(String string) {
-	String [] tokens = string.split(" ");
-	Map<Integer, Double> words = new HashMap<Integer, Double>(1000);
-	for (int i = 0; i < tokens.length; i++) {
-		if (tokens[i].length() > 1) {
-			String [] subTokens = tokens[i].split(":");
-			words.put(Integer.decode(subTokens[0]), Double.parseDouble(subTokens[1]));
-		}
-	}
-	return words;
-}
-
-public Map<Integer, String> loadDictionary(String dictFile) {
-	Map<Integer,String> dictionary = new HashMap<Integer, String>();
-
-	Scanner wordScanner = new Scanner(new FileReader(dictFile));
-	while (wordScanner.hasNext()) {
-		String line = wordScanner.nextLine();
-		String [] tokens = line.split("\t");
-		String word = tokens[0];
-		Integer id = Integer.decode(tokens[1]);
-		Integer count = Integer.decode(tokens[2]);
-
-		if (count > 100 && count < 1000)
-			dictionary.put(id, word);
-	}
-	wordScanner.close();
-
-	return dictionary;
-}

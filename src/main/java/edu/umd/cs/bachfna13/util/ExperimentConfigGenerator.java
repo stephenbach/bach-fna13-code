@@ -106,6 +106,8 @@ public class ExperimentConfigGenerator {
 								name = modelType + "-" + learningMethod.toLowerCase() + "-" + vpStepCount + "-" + vpStepSize;
 								if (learningMethod.equals("OMM")) {
 									newBundle.addProperty(VotedPerceptron.AUGMENT_LOSS_KEY, true);
+								}
+								if (learningMethod.equals("OMM") || learningMethod.equals("RANK")) {
 									name = name + "-" + vpRegularizer;
 								}
 								if (modelType.equals("bool")) {

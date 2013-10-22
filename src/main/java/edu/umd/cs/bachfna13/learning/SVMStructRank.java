@@ -64,7 +64,7 @@ public class SVMStructRank extends VotedPerceptron {
 				throw new IllegalStateException("Only Boolean training data are supported.");
 		}
 		atoms = atomList.toArray(new RandomVariableAtom[atomList.size()]);
-		log.warn("Total positive links: {}", totalPos);
+		log.info("Total positive links: {}", totalPos);
 		
 		super.doLearn();
 		
@@ -80,9 +80,9 @@ public class SVMStructRank extends VotedPerceptron {
 		int round = 0;
 		do {
 			int numberOfActiveLossTerms = 0;
-			log.warn("Running inference to compute derivative, round {}", round);
+			log.info("Running inference to compute derivative, round {}", round);
 			reasoner.optimize();
-			log.warn("Objective: {}", GroundKernels.getTotalWeightedIncompatibility(reasoner.getCompatibilityKernels()));
+			log.info("Objective: {}", GroundKernels.getTotalWeightedIncompatibility(reasoner.getCompatibilityKernels()));
 			runInference = false;
 			int numPos = 0, numNeg = 0;
 			Arrays.sort(atoms, new SVMRankStructComparator());
@@ -109,7 +109,7 @@ public class SVMStructRank extends VotedPerceptron {
 					runInference = true;
 				}
 			}
-			log.warn("Number of active loss terms: {}", numberOfActiveLossTerms);
+			log.info("Number of active loss terms: {}", numberOfActiveLossTerms);
 			round++;
 		}
 		while (runInference);
