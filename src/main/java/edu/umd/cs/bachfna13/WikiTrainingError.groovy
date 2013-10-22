@@ -138,7 +138,7 @@ m.add predicate: "Similar", types: [ArgumentType.UniqueID, ArgumentType.UniqueID
 m.add predicate: "Link", types: [ArgumentType.UniqueID, ArgumentType.UniqueID]
 m.add predicate: "Candidate", types: [ArgumentType.UniqueID, ArgumentType.UniqueID]
 
-double initialWeight = 1.0
+double initialWeight = 0.0
 
 // prior
 m.add rule : ~(Link(A,B)), weight: 0.1, squared: sq
