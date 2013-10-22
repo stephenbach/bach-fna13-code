@@ -325,14 +325,14 @@ for (int fold = 0; fold < folds; fold++) {
 		DiscretePredictionStatistics stats = comparator.compare(Link)
 		score[3] = stats.accuracy;
 	
-		log.info("Area under positive-class PR curve: " + score[0])
-		log.info("Area under negative-class PR curve: " + score[1])
-		log.info("Area under ROC curve: " + score[2])
-		log.info("Rounded accuracy: " + score[3]);
+		log.warn("Area under positive-class PR curve: " + score[0])
+		log.warn("Area under negative-class PR curve: " + score[1])
+		log.warn("Area under ROC curve: " + score[2])
+		log.warn("Rounded accuracy: " + score[3]);
 
 		
 		def b = DiscretePredictionStatistics.BinaryClass.POSITIVE
-		log.info("Method " + config.getString("name", "") + ", fold " + fold +", acc " + stats.getAccuracy() +
+		log.warn("Method " + config.getString("name", "") + ", fold " + fold +", acc " + stats.getAccuracy() +
 				", prec " + stats.getPrecision(b) + ", rec " + stats.getRecall(b) +
 				", F1 " + stats.getF1(b) + ", correct " + stats.getCorrectAtoms().size() +
 				", tp " + stats.tp + ", fp " + stats.fp + ", tn " + stats.tn + ", fn " + stats.fn)
@@ -355,7 +355,7 @@ for (int configIndex = 0; configIndex < configs.size(); configIndex++) {
 			sum[i] += score[i];
 			sumSq[i] += score[i] * score[i];
 		}
-		log.info("Method " + configName + ", fold " + fold +", auprc positive: "
+		log.warn("Method " + configName + ", fold " + fold +", auprc positive: "
 				+ score[0] + ", negative: " + score[1] + ", auROC: " + score[2]
 				+ ", rounded accuracy: " + score[3])
 	}
@@ -368,13 +368,13 @@ for (int configIndex = 0; configIndex < configs.size(); configIndex++) {
 	}
 
 
-	log.info("Method " + configName + ", auprc positive: (mean/variance) "
+	log.warn("Method " + configName + ", auprc positive: (mean/variance) "
 			+ mean[0] + "  /  " + variance[0] );
-	log.info("Method " + configName + ", auprc negative: (mean/variance) "
+	log.warn("Method " + configName + ", auprc negative: (mean/variance) "
 			+ mean[1] + "  /  " + variance[1] );
-	log.info("Method " + configName + ", auROC: (mean/variance) "
+	log.warn("Method " + configName + ", auROC: (mean/variance) "
 			+ mean[2] + "  /  " + variance[2] );
-	log.info("Method " + configName + ", rounded accuracy: "
+	log.warn("Method " + configName + ", rounded accuracy: "
 			+ mean[3] + "  /  " + variance[3] );
 }
 
