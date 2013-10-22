@@ -87,11 +87,11 @@ public class ExperimentConfigGenerator {
 
 		for (String modelType : modelTypes) {
 			for (String learningMethod : learningMethods) {
-				if (learningMethod.equals("MLE") || learningMethod.equals("MPLE") || learningMethod.equals("OMM")) {
+				if (learningMethod.equals("MLE") || learningMethod.equals("MPLE") || learningMethod.equals("OMM") || learningMethod.equals("RANK")) {
 					for (int vpStepCount : votedPerceptronStepCounts) {
 						for (double vpStepSize : votedPerceptronStepSizes) {
 							List<Double> myRegularizationParameters;
-							if (learningMethod.equals("OMM"))
+							if (learningMethod.equals("OMM") || learningMethod.equals("RANK"))
 								myRegularizationParameters = regularizationParameters;
 							else {
 								myRegularizationParameters = new ArrayList<Double>();

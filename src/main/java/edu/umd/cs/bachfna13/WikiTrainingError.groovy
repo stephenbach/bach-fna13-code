@@ -5,6 +5,7 @@ import org.slf4j.LoggerFactory
 
 import com.google.common.collect.Iterables
 
+import edu.umd.cs.bachfna13.learning.SVMStructRank;
 import edu.umd.cs.bachfna13.util.DataOutputter;
 import edu.umd.cs.bachfna13.util.ExperimentConfigGenerator;
 import edu.umd.cs.bachfna13.util.FoldUtils;
@@ -69,7 +70,7 @@ folds = 1 // number of folds
 if (args.length > 1)
 	seedRatio = Double.parseDouble(args[1]);
 Random rand = new Random(0) // used to seed observed data
-targetSize = 200
+targetSize = 100
 explore = 0.05
 
 Logger log = LoggerFactory.getLogger(this.class)
@@ -108,12 +109,13 @@ configGenerator.setModelTypes([(sq) ? "quad" : "linear"]);
  * "MPLE" (MaxPseudoLikelihood)
  * "MM" (MaxMargin)
  */
-configGenerator.setLearningMethods(["OMM"]);
+configGenerator.setLearningMethods(["RANK", "OMM"]);
 
 /* MLE/MPLE options */
 configGenerator.setVotedPerceptronStepCounts([100]);
 configGenerator.setVotedPerceptronStepSizes([(double) 5.0]);
-configGenerator.setRegularizationParameters([(double) 1.0, (double) 0.1, (double) 0.01]);
+//configGenerator.setRegularizationParameters([(double) 1.0, (double) 0.1, (double) 0.01]);
+configGenerator.setRegularizationParameters([(double) 1.0]);
 
 /* MM options */
 configGenerator.setMaxMarginSlackPenalties([(double) 1.0]);
@@ -137,7 +139,7 @@ m.add predicate: "Similar", types: [ArgumentType.UniqueID, ArgumentType.UniqueID
 m.add predicate: "Link", types: [ArgumentType.UniqueID, ArgumentType.UniqueID]
 m.add predicate: "Candidate", types: [ArgumentType.UniqueID, ArgumentType.UniqueID]
 
-double initialWeight = 0.0
+double initialWeight = 1.0
 
 // prior
 m.add rule : ~(Link(A,B)), weight: 0.1, squared: sq
@@ -389,6 +391,10 @@ for (int configIndex = 0; configIndex < configs.size(); configIndex++) {
 
 public void learn(Model m, Database db, Database labelsDB, ConfigBundle config, Logger log) {
 	switch(config.getString("learningmethod", "")) {
+		case "RANK":
+			SVMStructRank svm = new SVMStructRank(m, db, labelsDB, config)
+			svm.learn()
+			break
 		case "OMM":
 			MaxLikelihoodMPE mle = new MaxLikelihoodMPE(m, db, labelsDB, config)
 			mle.learn()
