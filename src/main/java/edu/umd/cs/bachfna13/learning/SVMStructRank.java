@@ -116,17 +116,29 @@ public class SVMStructRank extends VotedPerceptron {
 		
 		/* Computes incompatibility */
 		numGroundings = new double[kernels.size()];
-		double[] truthIncompatibility = new double[kernels.size()];
+		double[] incompatability = new double[kernels.size()];
 		
 		/* Computes the observed incompatibilities and numbers of groundings */
 		for (int i = 0; i < kernels.size(); i++) {
 			for (GroundKernel gk : reasoner.getGroundKernels(kernels.get(i))) {
-				truthIncompatibility[i] += ((GroundCompatibilityKernel) gk).getIncompatibility();
+				incompatability[i] += ((GroundCompatibilityKernel) gk).getIncompatibility();
 				numGroundings[i]++;
 			}
 		}
 		
-		return truthIncompatibility;
+		double norm = 0.0;
+		double margin = 0.0;
+		margin -= GroundKernels.getTotalWeightedIncompatibility(reasoner.getCompatibilityKernels());
+		
+		setLabeledRandomVariables();
+		for (int i = 0; i < kernels.size(); i++) {
+			norm += kernels.get(i).getWeight().getWeight() * kernels.get(i).getWeight().getWeight() / 2;
+		}
+		margin += GroundKernels.getTotalWeightedIncompatibility(reasoner.getCompatibilityKernels());
+		
+		log.warn("Learning objective: {}. Norm: {}, margin violation " + margin, l2Regularization * norm + margin, norm);
+			
+		return incompatability;
 	}
 	
 	protected class SVMRankStructComparator implements Comparator<RandomVariableAtom> {

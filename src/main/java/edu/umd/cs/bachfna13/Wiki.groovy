@@ -62,15 +62,17 @@ linkFile = "links.txt"
 threshold = "0.4"
 candidateFile = "candidates." + threshold + ".txt"
 simFile = "similar."+ threshold + ".txt"
+wordFile = "document.txt"
+dictFile = "words.txt"
 sq = true
 if (args.length > 0)
 	sq = Boolean.parseBoolean(args[0]);
 usePerCatRules = true
-folds = 4 // number of folds
+folds = 10 // number of folds
 if (args.length > 1)
 	seedRatio = Double.parseDouble(args[1]);
 Random rand = new Random(0) // used to seed observed data
-targetSize = 250
+targetSize = 50
 explore = 0.05
 
 Logger log = LoggerFactory.getLogger(this.class)
@@ -114,7 +116,7 @@ configGenerator.setLearningMethods(["RANK", "OMM", "MLE"]);
 /* MLE/MPLE options */
 configGenerator.setVotedPerceptronStepCounts([100]);
 configGenerator.setVotedPerceptronStepSizes([(double) 5.0]);
-configGenerator.setRegularizationParameters([(double) 1.0, (double) 0.1, (double) 0.01]);
+configGenerator.setRegularizationParameters([(double) 1.0]);
 
 /* MM options */
 configGenerator.setMaxMarginSlackPenalties([(double) 1.0]);
@@ -130,33 +132,47 @@ List<ConfigBundle> configs = configGenerator.getConfigs();
  * DEFINE MODEL
  */
 
+
+def dictionary = loadDictionary(dataPath + dictFile, rand)
+log.debug("Loaded dictionary of size {}, {}", dictionary.size(), dictionary);
+
 PSLModel m = new PSLModel(this, data)
 
 // rules
 m.add predicate: "HasCat", types: [ArgumentType.UniqueID, ArgumentType.UniqueID]
 m.add predicate: "Similar", types: [ArgumentType.UniqueID, ArgumentType.UniqueID]
 m.add predicate: "Link", types: [ArgumentType.UniqueID, ArgumentType.UniqueID]
+m.add predicate: "HasWord", types: [ArgumentType.UniqueID, ArgumentType.UniqueID]
 m.add predicate: "Candidate", types: [ArgumentType.UniqueID, ArgumentType.UniqueID]
 
 double initialWeight = 0.0
 
 // prior
 m.add rule : ~(Link(A,B)), weight: 0.1, squared: sq
-m.add rule : ( Similar(A,B)) >> Link(A, B), weight: initialWeight, squared: sq
+//m.add rule : ( Similar(A,B)) >> Link(A, B), weight: initialWeight, squared: sq
 m.add rule : ( HasCat(A,C) & HasCat(B,C) ) >> Link(A,B), weight: initialWeight, squared: sq
+m.add rule : ( HasCat(A,C) & HasCat(B,C) ) >> ~Link(A,B), weight: initialWeight, squared: sq
+m.add rule : ( HasCat(A,C1) & HasCat(B,C2) & (C1 - C2) ) >> Link(A,B), weight: initialWeight, squared: sq
+m.add rule : ( HasCat(A,C1) & HasCat(B,C2) & (C1 - C2) ) >> ~Link(A,B), weight: initialWeight, squared: sq
+m.add rule: (Link(A,B) & Link(B,C) & Candidate(A,C)) >> Link(A,C), weight: initialWeight, squared: sq
 
-for (int i = 0; i < numCategories; i++)  {
-	UniqueID cat1 = data.getUniqueID(i)
-	for (int j = 0; j < numCategories; j++) {
-		UniqueID cat2 = data.getUniqueID(j)
-		// per-cat rules
-		m.add rule : ( HasCat(A, cat1) &  HasCat(B, cat2)) >> Link(A,B), weight: initialWeight, squared: sq
-		m.add rule : ( HasCat(A, cat1) &  HasCat(B, cat2)) >> ~Link(A,B), weight: initialWeight, squared: sq
-	}
+//for (int i = 0; i < numCategories; i++)  {
+//	UniqueID cat1 = data.getUniqueID(i)
+//	for (int j = 0; j < numCategories; j++) {
+//		UniqueID cat2 = data.getUniqueID(j)
+//		// per-cat rules
+//		m.add rule : ( HasCat(A, cat1) &  HasCat(B, cat2)) >> Link(A,B), weight: initialWeight, squared: sq
+//		m.add rule : ( HasCat(A, cat1) &  HasCat(B, cat2)) >> ~Link(A,B), weight: initialWeight, squared: sq
+//	}
+//
+//	// triangle rules
+//	// blocked to reduce cubic blowup
+//	m.add rule: (Link(A,B) & Link(B,C) & HasCat(B, cat1) & Candidate(A,C)) >> Link(A,C), weight: initialWeight, squared: sq
+//}
 
-	// triangle rules
-	// blocked to reduce cubic blowup
-	m.add rule: (Link(A,B) & Link(B,C) & HasCat(B, cat1) & Candidate(A,C)) >> Link(A,C), weight: initialWeight, squared: sq
+for (int wordID : dictionary.keySet()) {
+	UniqueID word = data.getUniqueID(wordID);
+	m.add rule : (HasWord(A, word) & HasWord(B, word)) >> Link(A,B), weight: initialWeight, squared: sq
 }
 
 
@@ -190,6 +206,11 @@ InserterUtils.loadDelimitedDataTruth(inserter, dataPath + simFile)
 log.debug("Loaded similarities");
 
 
+inserter = data.getInserter(HasWord, fullObserved)
+insertWords(inserter, dataPath + wordFile, dictionary)
+log.debug("Loaded words");
+
+
 log.debug("Initial loading complete");
 
 trainReadPartitions = new ArrayList<Partition>()
@@ -216,6 +237,7 @@ queries.add(new DatabaseQuery(Link(document, linkedDocument).getFormula()))
 queries.add(new DatabaseQuery(Candidate(document, linkedDocument).getFormula()))
 queries.add(new DatabaseQuery(Similar(document, linkedDocument).getFormula()))
 queries.add(new DatabaseQuery(HasCat(document, A).getFormula()))
+queries.add(new DatabaseQuery(HasWord(document, A).getFormula()))
 
 def partitionDocuments = new HashMap<Partition, Set<GroundTerm>>()
 
@@ -264,16 +286,16 @@ for (int fold = 0; fold < folds; fold++) {
 	dbPop = new DatabasePopulator(trainDB);
 	dbPop.populate(new QueryAtom(Link, Doc1, Doc2), substitutions);
 	trainDB.close();
-	
-	
+
+
 	Database testDB = data.getDatabase(testWritePartitions.get(fold));
 	substitutions.put(Doc1, partitionDocuments.get(testReadPartitions.get(fold)))
 	substitutions.put(Doc2, partitionDocuments.get(testReadPartitions.get(fold)))
 	dbPop = new DatabasePopulator(testDB);
 	dbPop.populate(new QueryAtom(Link, Doc1, Doc2), substitutions);
 	testDB.close()
-	
-	
+
+
 	toClose = [Link] as Set
 	Database labelsDB = data.getDatabase(trainLabelPartitions.get(fold), toClose)
 
@@ -283,7 +305,7 @@ for (int fold = 0; fold < folds; fold++) {
 
 	log.debug("Setup done. Starting learning experiments")
 
-	def observedToClose = [HasCat, Similar, Candidate] as Set
+	def observedToClose = [HasCat, Similar, Candidate, HasWord] as Set
 
 	for (int configIndex = 0; configIndex < configs.size(); configIndex++) {
 		ConfigBundle config = configs.get(configIndex);
@@ -309,7 +331,7 @@ for (int fold = 0; fold < folds; fold++) {
 			atom.setValue(0.0);
 			atom.commitToDB();
 		}
-		
+
 		MPEInference mpe = new MPEInference(m, testDB, config)
 		FullInferenceResult result = mpe.mpeInference()
 		log.debug("Objective: " + result.getTotalWeightedIncompatibility())
@@ -325,7 +347,7 @@ for (int fold = 0; fold < folds; fold++) {
 		comparator.setBaseline(groundTruthDB)
 
 		DataOutputter.outputPredicate("output/wiki/predictions/" + config.getString("name", "") + "." + fold + ".txt", resultsDB, Link, ",", true, "from,to")
-		
+
 		def metrics = [RankingScore.AUPRC, RankingScore.NegAUPRC, RankingScore.AreaROC]
 		double [] score = new double[metrics.size() + 1]
 
@@ -339,19 +361,19 @@ for (int fold = 0; fold < folds; fold++) {
 
 		DiscretePredictionStatistics stats = comparator.compare(Link)
 		score[3] = stats.accuracy;
-	
+
 		log.warn("Area under positive-class PR curve: " + score[0])
 		log.warn("Area under negative-class PR curve: " + score[1])
 		log.warn("Area under ROC curve: " + score[2])
 		log.warn("Rounded accuracy: " + score[3]);
 
-		
+
 		def b = DiscretePredictionStatistics.BinaryClass.POSITIVE
 		log.warn("Method " + config.getString("name", "") + ", fold " + fold +", acc " + stats.getAccuracy() +
 				", prec " + stats.getPrecision(b) + ", rec " + stats.getRecall(b) +
 				", F1 " + stats.getF1(b) + ", correct " + stats.getCorrectAtoms().size() +
 				", tp " + stats.tp + ", fp " + stats.fp + ", tn " + stats.tn + ", fn " + stats.fn)
-		
+
 		results.get(configIndex).add(score);
 		resultsDB.close()
 		groundTruthDB.close()
@@ -423,5 +445,57 @@ public void learn(Model m, Database db, Database labelsDB, ConfigBundle config, 
 		default:
 			throw new IllegalArgumentException("Unrecognized method.");
 	}
+}
+
+
+public void insertWords(Inserter inserter, String wordFile, Map<Integer, String> dictionary) {
+	// load words
+	Scanner wordScanner = new Scanner(new FileReader(wordFile));
+	while (wordScanner.hasNext()) {
+		String line = wordScanner.nextLine();
+		String [] tokens = line.split("\t");
+		Integer docID = Integer.decode(tokens[0]);
+		Map<Integer, Double> docWords = parseWords(tokens[1]);
+		for (Map.Entry<Integer, Double> e : docWords.entrySet()) {
+			Integer wordID = e.getKey();
+			Double count = (double) e.getValue();
+			String word = dictionary.get(wordID);
+			if (word != null)
+				inserter.insert(docID, wordID);
+		}
+	}
+	wordScanner.close();
+}
+
+
+public Map<Integer, Double> parseWords(String string) {
+	String [] tokens = string.split(" ");
+	Map<Integer, Double> words = new HashMap<Integer, Double>(1000);
+	for (int i = 0; i < tokens.length; i++) {
+		if (tokens[i].length() > 1) {
+			String [] subTokens = tokens[i].split(":");
+			words.put(Integer.decode(subTokens[0]), Double.parseDouble(subTokens[1]));
+		}
+	}
+	return words;
+}
+
+public Map<Integer, String> loadDictionary(String dictFile, Random rand) {
+	Map<Integer,String> dictionary = new HashMap<Integer, String>();
+
+	Scanner wordScanner = new Scanner(new FileReader(dictFile));
+	while (wordScanner.hasNext()) {
+		String line = wordScanner.nextLine();
+		String [] tokens = line.split("\t");
+		String word = tokens[0];
+		Integer id = Integer.decode(tokens[1]);
+		Integer count = Integer.decode(tokens[2]);
+
+		if (count > 300 && rand.nextDouble() < 0.25)
+			dictionary.put(id, word);
+	}
+	wordScanner.close();
+
+	return dictionary;
 }
 
