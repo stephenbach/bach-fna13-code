@@ -68,10 +68,10 @@ sq = true
 if (args.length > 0)
 	sq = Boolean.parseBoolean(args[0]);
 usePerCatRules = true
-folds = 10 // number of folds
+folds = 20 // number of folds
 if (args.length > 1)
 	seedRatio = Double.parseDouble(args[1]);
-Random rand = new Random(0) // used to seed observed data
+Random rand = new Random(1234) // used to seed observed data
 targetSize = 50
 explore = 0.05
 
