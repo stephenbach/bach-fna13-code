@@ -8,7 +8,7 @@ allPR = {};
 
 %% read prediction output
 
-fin = fopen('../results-50nodes.txt', 'r');
+fin = fopen('../savedResults/results-50nodes.txt', 'r');
 while ~feof(fin)
     line = fgetl(fin);
     pattern = 'Method ([^,]+), fold ([^,]+), auprc positive: ([^,]+), negative: ([^,]+), auROC: ([^,]+), rounded accuracy: ([^,]+)';
@@ -29,6 +29,46 @@ while ~feof(fin)
             allAcc{i}(fold) = acc;
             allROC{i}(fold) = auroc;
             allPR{i}(fold) = aupr;
+        end
+    end
+end
+
+%% grab latest results
+
+fold = fold + 1;
+i = 1;
+
+fin = fopen('../results.tmp.txt', 'r');
+while ~feof(fin)
+    line = fgetl(fin);
+    pattern = 'Area under positive-class PR curve: (.+)';
+    matches = regexp(line, pattern, 'tokens');
+    if ~isempty(matches)
+        allPR{i}(fold) = str2double(matches{1}{1});
+    end
+    pattern = 'Area under ROC curve: (.+)';
+    matches = regexp(line, pattern, 'tokens');
+    if ~isempty(matches)
+        allROC{i}(fold) = str2double(matches{1}{1});
+    end
+    pattern = 'Rounded accuracy: (.+)';
+    matches = regexp(line, pattern, 'tokens');
+    if ~isempty(matches)
+        allAcc{i}(fold) = str2double(matches{1}{1});
+    end
+    pattern = 'Method ([^,]+), fold ([^,]+), acc ([^,]+)';
+    matches = regexp(line, pattern, 'tokens');
+    if ~isempty(matches)
+        method = matches{1}{1};
+        j = find(strcmp(method, methods));
+        assert(i == j);
+        
+        assert(str2num(matches{1}{2}) == fold - 10 - 1);
+        
+        i = i + 1;
+        if (i == 4)
+            fold = fold + 1;
+            i = 1;
         end
     end
 end
