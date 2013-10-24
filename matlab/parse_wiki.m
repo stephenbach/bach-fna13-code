@@ -73,6 +73,13 @@ while ~feof(fin)
     end
 end
 
+%% truncate
+
+for i = 1:length(methods)
+  allAcc{i} = allAcc{i}(1:20);
+  allROC{i} = allROC{i}(1:20);
+  allPR{i} = allPR{i}(1:20);  
+end
 
 %% compute means
 for i = 1:length(methods)
