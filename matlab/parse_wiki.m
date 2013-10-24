@@ -73,12 +73,14 @@ while ~feof(fin)
     end
 end
 
-%% truncate
+% %% truncate
+
+totalRuns = 30;
 
 for i = 1:length(methods)
-  allAcc{i} = allAcc{i}(1:20);
-  allROC{i} = allROC{i}(1:20);
-  allPR{i} = allPR{i}(1:20);  
+  allAcc{i} = allAcc{i}(10:totalRuns);
+  allROC{i} = allROC{i}(10:totalRuns);
+  allPR{i} = allPR{i}(10:totalRuns);  
 end
 
 %% compute means
@@ -99,9 +101,12 @@ end
 
 threshold = 0.05;
 for i = 1:length(methods)
-    sigAcc(i) = ttest2(allAcc{bestAcc}, allAcc{i}, threshold);
-    sigROC(i) = ttest2(allROC{bestROC}, allROC{i}, threshold);
-    sigPR(i) = ttest2(allPR{bestPR}, allPR{i}, threshold);
+%     sigAcc(i) = ttest2(allAcc{bestAcc}, allAcc{i}, threshold);
+%     sigROC(i) = ttest2(allROC{bestROC}, allROC{i}, threshold);
+%     sigPR(i) = ttest2(allPR{bestPR}, allPR{i}, threshold);
+    sigAcc(i) = ~isnan(ttest(allAcc{bestAcc}, allAcc{i}, threshold));
+    sigROC(i) = ~isnan(ttest(allROC{bestROC}, allROC{i}, threshold));
+    sigPR(i) = ~isnan(ttest(allPR{bestPR}, allPR{i},  threshold));
 end
 
 % Here precision is multiclass classification accuracy
@@ -137,5 +142,5 @@ end
 
 fprintf('\\bottomrule\n')
 fprintf('\\end{tabular}\n')
-fprintf('\nEND COLLECTIVE CLASSIFICATION RESULTS TABLE\n')
+fprintf('\nEND RANKING RESULTS TABLE\n')
 
