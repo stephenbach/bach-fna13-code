@@ -104,9 +104,9 @@ for i = 1:length(methods)
 %     sigAcc(i) = ttest2(allAcc{bestAcc}, allAcc{i}, threshold);
 %     sigROC(i) = ttest2(allROC{bestROC}, allROC{i}, threshold);
 %     sigPR(i) = ttest2(allPR{bestPR}, allPR{i}, threshold);
-    sigAcc(i) = ~isnan(ttest(allAcc{bestAcc}, allAcc{i}, threshold));
-    sigROC(i) = ~isnan(ttest(allROC{bestROC}, allROC{i}, threshold));
-    sigPR(i) = ~isnan(ttest(allPR{bestPR}, allPR{i},  threshold));
+    sigAcc(i) = (ttest(allAcc{bestAcc}, allAcc{i}, threshold));
+    sigROC(i) = (ttest(allROC{bestROC}, allROC{i}, threshold));
+    sigPR(i) = (ttest(allPR{bestPR}, allPR{i},  threshold));
 end
 
 % Here precision is multiclass classification accuracy
@@ -122,17 +122,17 @@ fprintf('\\midrule\n')
 
 for i = 1:length(latexNames)
     fprintf(latexNames{i});
-    if sigROC(i)
+    if i ~= bestROC && sigROC(i)
         fprintf('& %0.3f (%0.3f)', meanROC(i), std(allROC{i}));
     else
         fprintf('& \\textbf{%0.3f (%0.3f)}', meanROC(i), std(allROC{i}));
     end
-    if sigPR(i)
+    if i ~= bestPR && sigPR(i)
         fprintf('& %0.3f (%0.3f)', meanPR(i), std(allPR{i}));
     else
         fprintf('& \\textbf{%0.3f (%0.3f)}', meanPR(i), std(allPR{i}));
     end
-    if sigAcc(i)
+    if i ~= bestAcc && sigAcc(i)
         fprintf('& %0.3f (%0.3f)', meanAcc(i), std(allAcc{i}));
     else
         fprintf('& \\textbf{%0.3f (%0.3f)}', meanAcc(i), std(allAcc{i}));
